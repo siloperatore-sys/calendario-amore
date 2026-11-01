@@ -68,7 +68,8 @@ private sealed class InviteState {
 private fun friendlyError(e: Throwable): String = when {
     e is ApiException && e.statusCode == 10 ->
         "Google non riconosce ancora l'app: manca la configurazione da fare una volta sola (guida nel README, sezione «Collegarsi in due»)."
-    e is ApiException && (e.statusCode == 12501 || e.statusCode == 16) -> "Accesso annullato."
+    e is ApiException && (e.statusCode == 12501 || e.statusCode == 16) ->
+        "Google ha chiuso la richiesta. Controlla la configurazione Google e che la tua email sia tra gli «utenti di prova»."
     e is ApiException -> "Google ha risposto con l'errore ${e.statusCode}. Riprova tra poco."
     e is GoogleCalendarApi.ApiError && e.reason == "accessNotConfigured" ->
         "Nel progetto Google manca l'attivazione della «Google Calendar API»."
@@ -141,7 +142,18 @@ fun CoupleScreen(
 
     val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
         if (res.resultCode != Activity.RESULT_OK) {
-            state = InviteState.Failed("Accesso a Google annullato.")
+            val detail = try {
+                Identity.getAuthorizationClient(ctx).getAuthorizationResultFromIntent(res.data)
+                null
+            } catch (e: Exception) {
+                e
+            }
+            state = InviteState.Failed(
+                if (detail is ApiException && detail.statusCode != 12501 && detail.statusCode != 16) friendlyError(detail)
+                else "Google ha chiuso la richiesta senza dare il permesso. Di solito succede quando la configurazione Google " +
+                    "(da fare una volta sola) non è ancora pronta, oppure quando la tua email non è tra gli «utenti di prova». " +
+                    "Guida: README, sezione «Collegarsi in due»."
+            )
             return@rememberLauncherForActivityResult
         }
         try {
