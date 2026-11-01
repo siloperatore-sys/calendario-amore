@@ -103,6 +103,7 @@ fun HomeScreen(
     repo: CalendarRepository,
     refreshTick: Int,
     onOpenSettings: () -> Unit,
+    onOpenCouple: () -> Unit,
     onChanged: () -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -119,6 +120,7 @@ fun HomeScreen(
     var heard by remember { mutableStateOf<String?>(null) }
     var detail by remember { mutableStateOf<EventItem?>(null) }
     var askDelete by remember { mutableStateOf<EventItem?>(null) }
+    var newShared by remember { mutableStateOf<CalendarInfo?>(null) }
 
     val gridStart = remember(month) { month.atDay(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) }
     val gridDays = remember(gridStart) { (0 until 42).map { gridStart.plusDays(it.toLong()) } }
@@ -138,6 +140,19 @@ fun HomeScreen(
         events = result.first
         calendars = result.second
         todayCount = result.third
+
+        // Calendario di coppia appena creato da me: quando arriva sul telefono diventa quello «per la voce».
+        // Calendario condiviso dal partner: lo propongo una volta sola.
+        val all = withContext(Dispatchers.IO) { repo.allCalendars() }
+        val pending = prefs.pendingCoupleSyncId
+        if (pending.isNotBlank()) {
+            all.firstOrNull { it.syncId == pending }?.let { mine ->
+                prefs.defaultCalendarId = mine.id
+                prefs.pendingCoupleSyncId = ""
+                prefs.knownShared = prefs.knownShared + mine.id
+            }
+        }
+        newShared = all.firstOrNull { it.isGoogle && it.isShared && it.canWrite && it.id !in prefs.knownShared }
     }
 
     val byDay = remember(events, gridDays) { gridDays.associateWith { d -> events.filter { it.occursOn(d, zone) } } }
@@ -185,7 +200,7 @@ fun HomeScreen(
             // --- Intestazione ---
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    BouncyMascot(mascot, Modifier.size(72.dp))
+                    BouncyMascot(mascot, Modifier.size(58.dp))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
@@ -209,6 +224,8 @@ fun HomeScreen(
                             onChanged()
                         }
                     }
+                    Spacer(Modifier.width(8.dp))
+                    RoundButton("💕", onClick = onOpenCouple)
                     Spacer(Modifier.width(8.dp))
                     RoundButton("⚙️", onClick = onOpenSettings)
                 }
@@ -377,6 +394,43 @@ fun HomeScreen(
                         TextButton(onClick = { askDelete = e; detail = null }) { Text("Elimina", color = Color(0xFFD9667F)) }
                     }
                 }
+            },
+        )
+    }
+
+    newShared?.let { cal ->
+        AlertDialog(
+            onDismissRequest = {
+                prefs.knownShared = prefs.knownShared + cal.id
+                newShared = null
+            },
+            containerColor = p.card,
+            shape = RoundedCornerShape(30.dp),
+            title = { Text("💌 Calendario condiviso!", style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    MascotView(mascot, Modifier.size(90.dp), Mood.EXCITED)
+                    Text("${cal.ownerAccount} ha condiviso con te «${cal.name}». Lo usiamo come il vostro calendario in comune?")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    prefs.knownShared = prefs.knownShared + cal.id
+                    prefs.defaultCalendarId = cal.id
+                    prefs.hiddenCalendars = prefs.hiddenCalendars - cal.id
+                    newShared = null
+                    scope.launch {
+                        withContext(Dispatchers.IO) { repo.enableCalendar(cal) }
+                        Toast.makeText(ctx, "Collegati! 💕", Toast.LENGTH_SHORT).show()
+                        onChanged()
+                    }
+                }) { Text("Sì, usalo 💕") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    prefs.knownShared = prefs.knownShared + cal.id
+                    newShared = null
+                }) { Text("Non ora") }
             },
         )
     }

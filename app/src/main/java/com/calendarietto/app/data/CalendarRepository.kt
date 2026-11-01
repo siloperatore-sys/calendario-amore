@@ -21,7 +21,16 @@ data class CalendarInfo(
     val accountType: String,
     val color: Int,
     val canWrite: Boolean,
-)
+    val ownerAccount: String = "",
+    val visible: Boolean = true,
+    val syncEvents: Boolean = true,
+    /** Per Google è l'id del calendario (es. xxx@group.calendar.google.com). */
+    val syncId: String? = null,
+) {
+    val isGoogle: Boolean get() = accountType == "com.google"
+    /** Calendario di qualcun altro, condiviso con questo account. */
+    val isShared: Boolean get() = ownerAccount.isNotBlank() && !ownerAccount.equals(account, ignoreCase = true)
+}
 
 data class EventItem(
     val eventId: Long,
@@ -63,7 +72,10 @@ class CalendarRepository(private val context: Context) {
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) == PackageManager.PERMISSION_GRANTED
 
-    fun calendars(): List<CalendarInfo> {
+    fun calendars(): List<CalendarInfo> = allCalendars().filter { it.visible }
+
+    /** Tutti i calendari, anche quelli nascosti o non sincronizzati. */
+    fun allCalendars(): List<CalendarInfo> {
         if (!hasPermission()) return emptyList()
         val projection = arrayOf(
             CalendarContract.Calendars._ID,
@@ -72,12 +84,15 @@ class CalendarRepository(private val context: Context) {
             CalendarContract.Calendars.ACCOUNT_TYPE,
             CalendarContract.Calendars.CALENDAR_COLOR,
             CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL,
+            CalendarContract.Calendars.OWNER_ACCOUNT,
+            CalendarContract.Calendars.VISIBLE,
+            CalendarContract.Calendars.SYNC_EVENTS,
+            CalendarContract.Calendars._SYNC_ID,
         )
         val out = mutableListOf<CalendarInfo>()
         try {
             context.contentResolver.query(
-                CalendarContract.Calendars.CONTENT_URI, projection,
-                "${CalendarContract.Calendars.VISIBLE} = 1", null,
+                CalendarContract.Calendars.CONTENT_URI, projection, null, null,
                 "${CalendarContract.Calendars.ACCOUNT_NAME} ASC",
             )?.use { c ->
                 while (c.moveToNext()) {
@@ -88,12 +103,35 @@ class CalendarRepository(private val context: Context) {
                         accountType = c.getString(3) ?: "",
                         color = c.getInt(4),
                         canWrite = c.getInt(5) >= CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR,
+                        ownerAccount = c.getString(6) ?: "",
+                        visible = c.getInt(7) == 1,
+                        syncEvents = c.getInt(8) == 1,
+                        syncId = c.getString(9),
                     )
                 }
             }
-        } catch (_: SecurityException) {
+        } catch (_: Exception) {
         }
         return out
+    }
+
+    /** Account Google presenti sul telefono (quelli che hanno almeno un calendario). */
+    fun googleAccounts(): List<String> =
+        allCalendars().filter { it.isGoogle }.map { it.account }.filter { it.isNotBlank() }.distinct()
+
+    /** Rende visibile e sincronizzato un calendario (es. appena condiviso dal partner). */
+    fun enableCalendar(cal: CalendarInfo): Boolean = try {
+        val values = ContentValues().apply {
+            put(CalendarContract.Calendars.VISIBLE, 1)
+            put(CalendarContract.Calendars.SYNC_EVENTS, 1)
+        }
+        context.contentResolver.update(
+            ContentUris.withAppendedId(CalendarContract.Calendars.CONTENT_URI, cal.id), values, null, null,
+        )
+        requestSync(cal)
+        true
+    } catch (_: Exception) {
+        false
     }
 
     fun events(fromMillis: Long, toMillis: Long, hidden: Set<Long> = emptySet()): List<EventItem> {
@@ -186,6 +224,6 @@ class CalendarRepository(private val context: Context) {
     }
 
     fun syncAll() {
-        calendars().distinctBy { it.account to it.accountType }.forEach { requestSync(it) }
+        allCalendars().distinctBy { it.account to it.accountType }.forEach { requestSync(it) }
     }
 }

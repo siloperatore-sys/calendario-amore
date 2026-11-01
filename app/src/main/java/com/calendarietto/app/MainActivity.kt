@@ -32,6 +32,7 @@ import com.calendarietto.app.alarm.AlarmScheduler
 import com.calendarietto.app.alarm.Notifications
 import com.calendarietto.app.data.CalendarRepository
 import com.calendarietto.app.data.Prefs
+import com.calendarietto.app.ui.CoupleScreen
 import com.calendarietto.app.ui.HomeScreen
 import com.calendarietto.app.ui.KawaiiTheme
 import com.calendarietto.app.ui.OnboardingScreen
@@ -42,7 +43,7 @@ import com.calendarietto.app.ui.runtimePermissions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-private enum class Screen { WELCOME, HOME, SETTINGS }
+private enum class Screen { WELCOME, HOME, SETTINGS, COUPLE }
 
 class MainActivity : ComponentActivity() {
 
@@ -148,6 +149,7 @@ private fun CalendariettoApp(prefs: Prefs, repo: CalendarRepository, tick: Mutab
                     repo = repo,
                     refreshTick = tick.intValue,
                     onOpenSettings = { screen = Screen.SETTINGS },
+                    onOpenCouple = { screen = Screen.COUPLE },
                     onChanged = onChanged,
                 )
                 Screen.SETTINGS -> SettingsScreen(
@@ -159,10 +161,21 @@ private fun CalendariettoApp(prefs: Prefs, repo: CalendarRepository, tick: Mutab
                     onName = setName,
                     onMascot = setMascot,
                     onRequestRuntime = requestRuntime,
+                    onOpenCouple = { screen = Screen.COUPLE },
                     onBack = {
                         screen = Screen.HOME
                         onChanged()
                     },
+                )
+                Screen.COUPLE -> CoupleScreen(
+                    prefs = prefs,
+                    repo = repo,
+                    mascot = mascot,
+                    onBack = {
+                        screen = Screen.HOME
+                        onChanged()
+                    },
+                    onChanged = onChanged,
                 )
             }
         }

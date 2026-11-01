@@ -58,6 +58,24 @@ class Prefs(context: Context) {
         get() = sp.getInt("morningM", 0)
         set(v) = sp.edit().putInt("morningM", v).apply()
 
+    /** Calendari condivisi già proposti all'utente (per non chiedere due volte). */
+    var knownShared: Set<Long>
+        get() = sp.getStringSet("knownShared", emptySet())!!.mapNotNull { it.toLongOrNull() }.toSet()
+        set(v) = sp.edit().putStringSet("knownShared", v.map { it.toString() }.toSet()).apply()
+
+    /** Id Google del calendario di coppia appena creato: quando compare sul telefono diventa quello «per la voce». */
+    var pendingCoupleSyncId: String
+        get() = sp.getString("pendingCouple", "") ?: ""
+        set(v) = sp.edit().putString("pendingCouple", v).apply()
+
+    var partnerEmail: String
+        get() = sp.getString("partnerEmail", "") ?: ""
+        set(v) = sp.edit().putString("partnerEmail", v).apply()
+
+    var coupleCalendarName: String
+        get() = sp.getString("coupleName", "Noi due 💕") ?: "Noi due 💕"
+        set(v) = sp.edit().putString("coupleName", v).apply()
+
     /** Eventi per cui la sveglia è già suonata: "idEvento:inizio". */
     fun firedKeys(): Set<String> = sp.getStringSet("fired", emptySet())!!.toSet()
 

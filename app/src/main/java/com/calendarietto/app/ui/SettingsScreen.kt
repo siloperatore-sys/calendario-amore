@@ -88,6 +88,7 @@ fun SettingsScreen(
     onName: (String) -> Unit,
     onMascot: (Mascot) -> Unit,
     onRequestRuntime: () -> Unit,
+    onOpenCouple: () -> Unit,
     onBack: () -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -140,6 +141,13 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(12.dp))
             MascotPicker(mascot, onMascot)
+        }
+
+        SectionTitle("Noi due 💕")
+        CozyCard {
+            Text("Collega il tuo calendario con quello del tuo amore, tramite email.", color = p.muted)
+            Spacer(Modifier.height(10.dp))
+            PillButton("💌 Collegati", Modifier.fillMaxWidth(), filled = true, onClick = onOpenCouple)
         }
 
         SectionTitle("Calendari 📚")

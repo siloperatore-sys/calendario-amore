@@ -39,13 +39,31 @@ Ogni volta che modifichi un file su GitHub viene creata una nuova versione, che 
    - **Niente risparmio batteria**: consigliato, soprattutto su Xiaomi, Huawei, Oppo e Samsung, che altrimenti possono bloccare le sveglie.
 3. In **Impostazioni ⚙️ → Sveglie** tocca **Prova la sveglia**: dopo 5 secondi deve suonare, anche a schermo bloccato.
 
-## Calendario condiviso: come impostarlo
+## Collegarsi in due 💕
 
-1. Uno dei due crea su Google Calendar (dal computer, calendar.google.com) un nuovo calendario, per esempio «Noi due 💕».
-2. In **Impostazioni e condivisione** di quel calendario aggiunge l'email dell'altra persona con il permesso **Apportare modifiche agli eventi**.
-3. L'altra persona accetta l'invito dall'email.
-4. Sul telefono, nell'app **Google Calendar**, il calendario deve risultare sincronizzato: Impostazioni → nome del calendario → **Sincronizza** attivo.
-5. In Calendarietto, **Impostazioni → Calendari**, scegliete entrambi «Noi due 💕» come **⭐ Per la voce**. Da quel momento quello che uno aggiunge a voce compare anche sul telefono dell'altro, di solito entro pochi minuti. Il pulsante 🔄 forza la sincronizzazione.
+Nell'app tocca **💕** in alto (oppure **⚙️ → Noi due**).
+
+**Chi invita:** scrive l'email Google dell'altra persona e tocca **💌 Invia invito**. L'app crea il calendario «Noi due 💕» su Google Calendar e lo condivide con permesso di modifica. Volendo condivide anche il calendario personale, solo in lettura. Poi tocca **📲 Manda il link** per inviarlo anche su WhatsApp.
+
+**Chi riceve:** apre l'email di Google Calendar (o il link) e tocca **Aggiungi questo calendario**. Poi apre l'app: compare «💌 Calendario condiviso!» e basta toccare **Sì, usalo**. In alternativa: 💕 → **Cerca calendari condivisi**.
+
+Da quel momento ogni impegno aggiunto da uno dei due, a voce o a mano, compare anche sul telefono dell'altro.
+
+### Configurazione Google (una volta sola, solo per chi invita)
+
+Per creare e condividere calendari dall'app, Google chiede di registrare l'app. Servono circa 10 minuti, dal computer:
+
+1. Vai su **console.cloud.google.com** con il tuo account Google e crea un progetto (nome a piacere, es. «Calendarietto»).
+2. **API e servizi → Libreria** → cerca **Google Calendar API** → **Abilita**.
+3. **API e servizi → Schermata consenso OAuth** (o «Google Auth Platform»): tipo **Esterno**, nome app «Calendarietto», la tua email come contatto. Alla voce **Utenti di prova** aggiungi la tua email e quella del tuo amore.
+4. **API e servizi → Credenziali → Crea credenziali → ID client OAuth**, tipo **Android**:
+   - Nome pacchetto: `com.calendarietto.app`
+   - Impronta certificato SHA-1: `32:36:F6:7B:57:44:D5:39:29:82:A7:6E:BE:62:EF:DA:07:C8:9A:A9`
+5. Salva. Non serve copiare nulla nell'app: Google la riconosce da pacchetto e impronta.
+
+Al primo invito Google mostrerà «App non verificata»: è normale per un'app personale. Tocca **Continua** e consenti l'accesso al calendario.
+
+Se non vuoi configurare nulla, c'è la strada manuale: crea il calendario da calendar.google.com (dal computer), in **Impostazioni e condivisione** aggiungi l'email dell'altra persona con **Apportare modifiche agli eventi**, poi nell'app di chi riceve usa **Cerca calendari condivisi**.
 
 ## Note tecniche
 
