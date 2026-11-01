@@ -1,0 +1,48 @@
+name: Costruisci APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Prova il riconoscimento vocale
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Compila l'APK
+        run: gradle :app:assembleRelease --stacktrace
+
+      - name: Prepara il file
+        run: cp app/build/outputs/apk/release/app-release.apk Calendarietto.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Calendarietto-apk
+          path: Calendarietto.apk
+
+      - name: Pubblica la versione da scaricare
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Calendarietto 1.0.${{ github.run_number }}
+          body: Scarica Calendarietto.apk dal telefono e installalo 🎀
+          files: Calendarietto.apk

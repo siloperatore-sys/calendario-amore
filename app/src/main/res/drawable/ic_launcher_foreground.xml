@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Calendarietto con faccina kawaii e cuoricino (area sicura 66dp centrali su 108) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- corpo -->
+    <path android:fillColor="#FFFFFF" android:strokeColor="#B79CED" android:strokeWidth="3"
+        android:pathData="M36,38 h36 a8,8 0 0 1 8,8 v24 a8,8 0 0 1 -8,8 h-36 a8,8 0 0 1 -8,-8 v-24 a8,8 0 0 1 8,-8 z" />
+    <!-- testata -->
+    <path android:fillColor="#B79CED"
+        android:pathData="M36,38 h36 a8,8 0 0 1 8,8 v4 h-52 v-4 a8,8 0 0 1 8,-8 z" />
+    <!-- anelli -->
+    <path android:fillColor="#7C64B8" android:pathData="M40,32 h5 v12 h-5 z" />
+    <path android:fillColor="#7C64B8" android:pathData="M63,32 h5 v12 h-5 z" />
+    <!-- occhi -->
+    <path android:fillColor="#4A3B5C" android:pathData="M45,60 m-3,0 a3,3.6 0 1 0 6,0 a3,3.6 0 1 0 -6,0" />
+    <path android:fillColor="#4A3B5C" android:pathData="M63,60 m-3,0 a3,3.6 0 1 0 6,0 a3,3.6 0 1 0 -6,0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M46,58.5 m-1,0 a1,1 0 1 0 2,0 a1,1 0 1 0 -2,0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M64,58.5 m-1,0 a1,1 0 1 0 2,0 a1,1 0 1 0 -2,0" />
+    <!-- guance -->
+    <path android:fillColor="#FFB3D1" android:pathData="M40,67 m-3.5,0 a3.5,2.2 0 1 0 7,0 a3.5,2.2 0 1 0 -7,0" />
+    <path android:fillColor="#FFB3D1" android:pathData="M68,67 m-3.5,0 a3.5,2.2 0 1 0 7,0 a3.5,2.2 0 1 0 -7,0" />
+    <!-- sorriso -->
+    <path android:strokeColor="#4A3B5C" android:strokeWidth="2" android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M51,65 q3,3 6,0" />
+    <!-- cuoricino -->
+    <path android:fillColor="#FF8FB8"
+        android:pathData="M78,30 c-2,-4 -8,-3 -8,1.5 c0,3.5 5,6.5 8,9 c3,-2.5 8,-5.5 8,-9 c0,-4.5 -6,-5.5 -8,-1.5 z" />
+</vector>
