@@ -143,10 +143,58 @@ object Notifications {
         return txt + (if (e.rrule.isNotBlank()) " · si ripete" else "")
     }
 
+    private val hourFmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm", java.util.Locale.ITALIAN)
+
+    private fun zoned(e: EventSnap, ms: Long) =
+        java.time.Instant.ofEpochMilli(ms).atZone(if (e.allDay) java.time.ZoneOffset.UTC else java.time.ZoneId.systemDefault())
+
+    /** Elenco leggibile di cosa è cambiato tra prima e dopo. */
+    internal fun diff(a: EventSnap, b: EventSnap): List<String> {
+        val out = mutableListOf<String>()
+        if (a.title != b.title) out += "📝 nome: «${a.title.ifBlank { "senza titolo" }}» → «${b.title.ifBlank { "senza titolo" }}»"
+        val sa = zoned(a, a.start); val sb = zoned(b, b.start)
+        if (a.allDay != b.allDay) {
+            out += if (b.allDay) "📅 ora è tutto il giorno (${sb.format(dayFmt)})" else "⏰ ora è alle ${sb.format(whenFmt)}"
+        } else if (sa.toLocalDate() != sb.toLocalDate()) {
+            out += if (b.allDay) "📅 giorno: ${sa.format(dayFmt)} → ${sb.format(dayFmt)}"
+            else "📅 quando: ${sa.format(whenFmt)} → ${sb.format(whenFmt)}"
+        } else if (!b.allDay && a.start != b.start) {
+            out += "⏰ ora: ${sa.format(hourFmt)} → ${sb.format(hourFmt)} (${sb.format(dayFmt)})"
+        }
+        if (!b.allDay && a.start == b.start && a.end != b.end && b.end > 0) {
+            out += "⌛ finisce alle ${zoned(b, b.end).format(hourFmt)} (prima alle ${if (a.end > 0) zoned(a, a.end).format(hourFmt) else "?"})"
+        }
+        if (a.location != b.location) out += when {
+            b.location.isBlank() -> "📍 tolto il luogo (era ${a.location})"
+            a.location.isBlank() -> "📍 luogo: ${b.location}"
+            else -> "📍 luogo: ${a.location} → ${b.location}"
+        }
+        if (a.rrule != b.rrule) out += if (b.rrule.isBlank()) "🔁 non si ripete più" else "🔁 cambiata la ripetizione"
+        return out
+    }
+
     private fun label(c: EventChange): String = when (c.kind) {
         ChangeKind.ADDED -> "💌 Nuovo impegno"
         ChangeKind.CHANGED -> "✏️ Impegno modificato"
         ChangeKind.REMOVED -> "🗑️ Impegno cancellato"
+    }
+
+    /** Testo della notifica: per le modifiche dice cosa è cambiato, per il resto quando era/è. */
+    private fun body(c: EventChange): String {
+        val lines = mutableListOf<String>()
+        when (c.kind) {
+            ChangeKind.ADDED -> lines += "Aggiunto per ${describe(c.event)}"
+            ChangeKind.REMOVED -> lines += "Era previsto ${describe(c.event)}"
+            ChangeKind.CHANGED -> {
+                val d = c.before?.let { diff(it, c.event) }.orEmpty()
+                lines += d.ifEmpty { listOf("Nuovo orario: ${describe(c.event)}") }
+            }
+        }
+        if (c.kind != ChangeKind.REMOVED && c.event.location.isNotBlank() && lines.none { it.startsWith("📍") }) {
+            lines += "📍 ${c.event.location}"
+        }
+        if (c.calendarName.isNotBlank()) lines += "🗓️ ${c.calendarName}"
+        return lines.joinToString("\n")
     }
 
     fun showChanges(ctx: Context, changes: List<EventChange>) {
@@ -156,13 +204,13 @@ object Notifications {
         if (changes.size <= 3) {
             changes.forEach { c ->
                 val title = c.event.title.ifBlank { "(senza titolo)" }
-                val body = listOf(describe(c.event), c.calendarName).filter { it.isNotBlank() }.joinToString(" · ")
+                val text = body(c)
                 val n = NotificationCompat.Builder(ctx, CH_CHANGES)
                     .setSmallIcon(R.drawable.ic_notif)
                     .setColor(accent(ctx))
                     .setContentTitle("${label(c)}: $title")
-                    .setContentText(body)
-                    .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                    .setContentText(text.lineSequence().first())
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                     .setContentIntent(openApp(ctx))
                     .setAutoCancel(true)
                     .build()
@@ -170,7 +218,10 @@ object Notifications {
             }
         } else {
             val style = NotificationCompat.InboxStyle()
-            changes.take(7).forEach { style.addLine("${label(it)}: ${it.event.title}") }
+            changes.take(7).forEach { c ->
+                val first = body(c).lineSequence().first()
+                style.addLine("${label(c)}: ${c.event.title.ifBlank { "(senza titolo)" }} — $first")
+            }
             if (changes.size > 7) style.setSummaryText("e altri ${changes.size - 7}")
             val n = NotificationCompat.Builder(ctx, CH_CHANGES)
                 .setSmallIcon(R.drawable.ic_notif)

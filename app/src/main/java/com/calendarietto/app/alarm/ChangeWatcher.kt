@@ -31,7 +31,8 @@ data class EventSnap(
 
 enum class ChangeKind { ADDED, CHANGED, REMOVED }
 
-data class EventChange(val kind: ChangeKind, val event: EventSnap, val calendarName: String)
+/** before = com'era prima (solo per le modifiche), per dire cosa è cambiato. */
+data class EventChange(val kind: ChangeKind, val event: EventSnap, val calendarName: String, val before: EventSnap? = null)
 
 /**
  * Si accorge quando un impegno viene aggiunto, modificato o cancellato
@@ -156,7 +157,7 @@ object ChangeWatcher {
             val prev = old[id]
             when {
                 prev == null -> changes += EventChange(ChangeKind.ADDED, e, cals[e.calendarId] ?: "")
-                prev.signature != e.signature -> changes += EventChange(ChangeKind.CHANGED, e, cals[e.calendarId] ?: "")
+                prev.signature != e.signature -> changes += EventChange(ChangeKind.CHANGED, e, cals[e.calendarId] ?: "", prev)
             }
         }
         val windowStart = System.currentTimeMillis() - 24L * 60 * 60 * 1000

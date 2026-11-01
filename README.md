@@ -16,7 +16,7 @@ Calendario condiviso cozy e kawaii per Android: legge Google Calendar, suona una
   - «palestra domani sera per un'ora e mezza»
 
   Prima di salvare vedi sempre cosa ha capito e puoi correggerlo.
-- **Due mascotte.** Robottino (blu notte e azzurro) o Unicorno (lilla, menta e rosa): ognuno sceglie la sua sul proprio telefono e i colori dell'app cambiano di conseguenza.
+- **Due mascotte.** Robottino (blu notte e azzurro) o Unicorno arcobaleno: ognuno sceglie la sua sul proprio telefono e i colori dell'app cambiano di conseguenza.
 
 ## Come ottenere l'APK con GitHub (senza installare nulla)
 

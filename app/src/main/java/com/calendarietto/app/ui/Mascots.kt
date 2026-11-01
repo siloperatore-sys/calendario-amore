@@ -63,15 +63,29 @@ private fun DrawScope.closedEye(g: Grid, cx: Float, cy: Float, color: Color) =
 private fun DrawScope.drawUnicorn(g: Grid, mood: Mood) {
     val ink = Color(0xFF4A3B5C)
     val pink = Color(0xFFFFB3D1)
-    val lilac = Color(0xFFC9B6F2)
-    val mint = Color(0xFFA8E6CF)
     val outline = Color(0xFFB79CED)
 
-    // criniera dietro
-    circle(g, 29f, 34f, 12f, pink)
-    circle(g, 22f, 48f, 11f, lilac)
-    circle(g, 23f, 63f, 10f, mint)
-    circle(g, 71f, 36f, 9f, lilac)
+    // arcobaleno pastello
+    val rainbow = listOf(
+        Color(0xFFFFADAD), Color(0xFFFFD6A5), Color(0xFFFDFFB6),
+        Color(0xFFCAFFBF), Color(0xFF9BF6FF), Color(0xFFBDB2FF),
+    )
+    rainbow.forEachIndexed { i, c ->
+        val r = 46f - i * 3.2f
+        drawArc(
+            c, startAngle = 180f, sweepAngle = 180f, useCenter = false,
+            topLeft = g.o(50f - r, 58f - r), size = g.sz(2 * r, 2 * r),
+            style = Stroke(width = 3.4f * g.u, cap = StrokeCap.Round),
+        )
+    }
+
+    // criniera arcobaleno dietro
+    circle(g, 30f, 32f, 11f, rainbow[0])
+    circle(g, 23f, 43f, 10.5f, rainbow[1])
+    circle(g, 20f, 55f, 10f, rainbow[2])
+    circle(g, 22f, 66f, 9.5f, rainbow[3])
+    circle(g, 27f, 76f, 8.5f, rainbow[4])
+    circle(g, 71f, 36f, 9f, rainbow[5])
 
     // orecchie
     drawPath(g.path(33f to 33f, 37f to 14f, 47f to 27f), Color.White)
@@ -89,9 +103,10 @@ private fun DrawScope.drawUnicorn(g: Grid, mood: Mood) {
     drawLine(Color(0xFFF5C46B), g.o(47f, 15f), g.o(52.5f, 13f), strokeWidth = 1.6f * g.u, cap = StrokeCap.Round)
 
     // ciuffi davanti
-    circle(g, 39f, 31f, 8f, pink)
-    circle(g, 62f, 32f, 7f, mint)
-    circle(g, 33f, 38f, 5.5f, lilac)
+    circle(g, 39f, 31f, 8f, rainbow[0])
+    circle(g, 62f, 32f, 7f, rainbow[4])
+    circle(g, 33f, 38f, 5.5f, rainbow[5])
+    circle(g, 45f, 33.5f, 4.5f, rainbow[1])
 
     // occhi
     when (mood) {
