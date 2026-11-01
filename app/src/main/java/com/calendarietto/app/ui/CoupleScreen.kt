@@ -100,6 +100,10 @@ fun CoupleScreen(
     var state by remember { mutableStateOf<InviteState>(InviteState.Idle) }
     var shared by remember { mutableStateOf<List<CalendarInfo>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
+    var linkEmail by remember { mutableStateOf(prefs.partnerEmail) }
+    var linkMsg by remember { mutableStateOf("") }
+    var linking by remember { mutableStateOf(false) }
+    var showAddLink by remember { mutableStateOf(false) }
     var refresh by remember { mutableStateOf(0) }
 
     LaunchedEffect(refresh) {
@@ -197,6 +201,54 @@ fun CoupleScreen(
             .addOnFailureListener { e -> state = InviteState.Failed(friendlyError(e)) }
     }
 
+    // ---------- Collega tramite email (senza login) ----------
+    fun findByEmail(all: List<CalendarInfo>, email: String): List<CalendarInfo> {
+        val e = email.trim().lowercase()
+        return all.filter { c ->
+            c.isGoogle && !c.account.equals(e, ignoreCase = true) && (
+                c.ownerAccount.equals(e, ignoreCase = true) ||
+                    (c.syncId ?: "").equals(e, ignoreCase = true) ||
+                    c.name.equals(e, ignoreCase = true)
+                )
+        }
+    }
+
+    fun linkPartner() {
+        val email = linkEmail.trim()
+        if (!email.contains("@") || !email.contains(".")) {
+            linkMsg = "Scrivi l'email Google del tuo amore 💌"
+            return
+        }
+        prefs.partnerEmail = email
+        linking = true
+        showAddLink = false
+        linkMsg = "Cerco il calendario di $email…"
+        scope.launch {
+            var found = withContext(Dispatchers.IO) { findByEmail(repo.allCalendars(), email) }
+            if (found.isEmpty()) {
+                linkMsg = "Non è ancora sul telefono: chiedo a Google di aggiornare…"
+                withContext(Dispatchers.IO) { repo.syncAll() }
+                delay(6000)
+                found = withContext(Dispatchers.IO) { findByEmail(repo.allCalendars(), email) }
+            }
+            if (found.isEmpty()) {
+                linkMsg = "Non trovo il calendario di $email su questo telefono. Di solito vuol dire che è condiviso con te " +
+                    "ma non è ancora nel tuo elenco di Google Calendar: tocca il pulsante qui sotto, conferma «Aggiungi», poi torna qui e premi di nuovo «Collega»."
+                showAddLink = true
+            } else {
+                withContext(Dispatchers.IO) { found.forEach { repo.enableCalendar(it) } }
+                prefs.hiddenCalendars = prefs.hiddenCalendars - found.map { it.id }.toSet()
+                prefs.knownShared = prefs.knownShared + found.map { it.id }
+                found.firstOrNull { it.canWrite }?.let { if (it.isShared) prefs.defaultCalendarId = it.id }
+                val names = found.joinToString { "«${it.name}»" }
+                linkMsg = "Collegati! 💕 Ora vedi $names. Gli impegni compaiono in qualche secondo."
+                onChanged()
+                refresh++
+            }
+            linking = false
+        }
+    }
+
     fun shareLink(calId: String, name: String) {
         val text = "Ti ho invitato nel nostro calendario «$name» su Calendarietto 💕\n\n" +
             "1. Installa Calendarietto (te lo mando a parte)\n" +
@@ -253,8 +305,51 @@ fun CoupleScreen(
             )
         }
 
+        // ---------- Collega ----------
+        SectionTitle("Vedi il suo calendario 👀")
+        CozyCard {
+            Text("Se vi siete già condivisi il calendario su Google, basta la sua email.", color = p.muted)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = linkEmail,
+                onValueChange = { linkEmail = it },
+                label = { Text("Email Google del tuo amore") },
+                singleLine = true,
+                shape = RoundedCornerShape(18.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(10.dp))
+            PillButton(
+                if (linking) "Cerco… 🔎" else "💕 Collega",
+                Modifier.fillMaxWidth(),
+                filled = true,
+                enabled = !linking,
+            ) { linkPartner() }
+            if (linkMsg.isNotBlank()) {
+                Text(linkMsg, modifier = Modifier.padding(top = 10.dp))
+            }
+            if (showAddLink) {
+                Spacer(Modifier.height(8.dp))
+                PillButton("➕ Aggiungi il suo calendario su Google", Modifier.fillMaxWidth()) {
+                    val url = "https://calendar.google.com/calendar/u/0/r?cid=" +
+                        java.net.URLEncoder.encode(linkEmail.trim(), "UTF-8")
+                    try {
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+        }
+
         // ---------- Invita ----------
-        SectionTitle("Invita il tuo amore ✉️")
+        SectionTitle("Oppure create un calendario nuovo in comune ✉️")
+        Text(
+            "Serve la configurazione Google descritta nella guida: se vi basta vedere i calendari che avete già, usate la sezione sopra.",
+            color = p.muted,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(start = 6.dp, bottom = 8.dp),
+        )
         CozyCard {
             if (accounts.size > 1) {
                 Text("Il tuo account Google", color = p.muted)
