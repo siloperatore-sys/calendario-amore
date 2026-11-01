@@ -58,6 +58,11 @@ class Prefs(context: Context) {
         get() = sp.getInt("morningM", 0)
         set(v) = sp.edit().putInt("morningM", v).apply()
 
+    /** Notifica quando un impegno viene aggiunto, modificato o cancellato. */
+    var changeNotify: Boolean
+        get() = sp.getBoolean("changeNotify", true)
+        set(v) = sp.edit().putBoolean("changeNotify", v).apply()
+
     /** Calendari condivisi già proposti all'utente (per non chiedere due volte). */
     var knownShared: Set<Long>
         get() = sp.getStringSet("knownShared", emptySet())!!.mapNotNull { it.toLongOrNull() }.toSet()

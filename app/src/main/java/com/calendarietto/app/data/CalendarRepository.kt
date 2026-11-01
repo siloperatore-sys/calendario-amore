@@ -223,6 +223,36 @@ class CalendarRepository(private val context: Context) {
         }
     }
 
+    /** Account Google con la sincronizzazione del calendario spenta (o tutta la sincronizzazione spenta). */
+    data class SyncProblem(val accounts: List<String>, val masterOff: Boolean) {
+        val any: Boolean get() = masterOff || accounts.isNotEmpty()
+    }
+
+    fun syncProblems(): SyncProblem {
+        return try {
+            val master = android.content.ContentResolver.getMasterSyncAutomatically()
+            val off = googleAccounts().filter { acc ->
+                !android.content.ContentResolver.getSyncAutomatically(Account(acc, "com.google"), CalendarContract.AUTHORITY)
+            }
+            SyncProblem(off, !master)
+        } catch (_: Exception) {
+            SyncProblem(emptyList(), false)
+        }
+    }
+
+    /** Riaccende la sincronizzazione del calendario per gli account Google indicati. */
+    fun enableCalendarSync(accounts: List<String>): Boolean = try {
+        accounts.forEach { acc ->
+            val a = Account(acc, "com.google")
+            android.content.ContentResolver.setIsSyncable(a, CalendarContract.AUTHORITY, 1)
+            android.content.ContentResolver.setSyncAutomatically(a, CalendarContract.AUTHORITY, true)
+        }
+        syncAll()
+        true
+    } catch (_: Exception) {
+        false
+    }
+
     fun syncAll() {
         allCalendars().distinctBy { it.account to it.accountType }.forEach { requestSync(it) }
     }

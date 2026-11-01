@@ -19,6 +19,7 @@ import com.calendarietto.app.data.Prefs
 object Notifications {
     const val CH_ALARM = "sveglie"
     const val CH_MORNING = "mattino"
+    const val CH_CHANGES = "modifiche"
     const val ID_ALARM = 1
     const val ID_MORNING = 2
     const val ID_MISSED = 3
@@ -35,7 +36,10 @@ object Notifications {
         val morning = NotificationChannel(CH_MORNING, "Riepilogo del mattino", NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = "Gli impegni della giornata, ogni mattina"
         }
-        nm(ctx).createNotificationChannels(listOf(alarm, morning))
+        val changes = NotificationChannel(CH_CHANGES, "Impegni aggiunti o modificati", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Quando un impegno viene aggiunto, cambiato o cancellato, anche dall'altra persona"
+        }
+        nm(ctx).createNotificationChannels(listOf(alarm, morning, changes))
     }
 
     fun canPost(ctx: Context): Boolean =
@@ -127,6 +131,58 @@ object Notifications {
             .setAutoCancel(true)
             .build()
         nm(ctx).notify(ID_MISSED, n)
+    }
+
+    private val whenFmt = java.time.format.DateTimeFormatter.ofPattern("EEE d MMM, HH:mm", java.util.Locale.ITALIAN)
+    private val dayFmt = java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", java.util.Locale.ITALIAN)
+
+    private fun describe(e: EventSnap): String {
+        val zone = if (e.allDay) java.time.ZoneOffset.UTC else java.time.ZoneId.systemDefault()
+        val start = java.time.Instant.ofEpochMilli(e.start).atZone(zone)
+        val txt = if (e.allDay) start.format(dayFmt) + " (tutto il giorno)" else start.format(whenFmt)
+        return txt + (if (e.rrule.isNotBlank()) " · si ripete" else "")
+    }
+
+    private fun label(c: EventChange): String = when (c.kind) {
+        ChangeKind.ADDED -> "💌 Nuovo impegno"
+        ChangeKind.CHANGED -> "✏️ Impegno modificato"
+        ChangeKind.REMOVED -> "🗑️ Impegno cancellato"
+    }
+
+    fun showChanges(ctx: Context, changes: List<EventChange>) {
+        if (!canPost(ctx) || changes.isEmpty()) return
+        ensureChannels(ctx)
+        val nm = nm(ctx)
+        if (changes.size <= 3) {
+            changes.forEach { c ->
+                val title = c.event.title.ifBlank { "(senza titolo)" }
+                val body = listOf(describe(c.event), c.calendarName).filter { it.isNotBlank() }.joinToString(" · ")
+                val n = NotificationCompat.Builder(ctx, CH_CHANGES)
+                    .setSmallIcon(R.drawable.ic_notif)
+                    .setColor(accent(ctx))
+                    .setContentTitle("${label(c)}: $title")
+                    .setContentText(body)
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                    .setContentIntent(openApp(ctx))
+                    .setAutoCancel(true)
+                    .build()
+                nm.notify(1000 + ((c.event.id.toInt() * 3 + c.kind.ordinal) and 0xFFFF), n)
+            }
+        } else {
+            val style = NotificationCompat.InboxStyle()
+            changes.take(7).forEach { style.addLine("${label(it)}: ${it.event.title}") }
+            if (changes.size > 7) style.setSummaryText("e altri ${changes.size - 7}")
+            val n = NotificationCompat.Builder(ctx, CH_CHANGES)
+                .setSmallIcon(R.drawable.ic_notif)
+                .setColor(accent(ctx))
+                .setContentTitle("📅 ${changes.size} impegni aggiornati")
+                .setContentText(changes.joinToString(", ") { it.event.title }.take(120))
+                .setStyle(style)
+                .setContentIntent(openApp(ctx))
+                .setAutoCancel(true)
+                .build()
+            nm.notify(999, n)
+        }
     }
 
     fun cancelAlarm(ctx: Context) = nm(ctx).cancel(ID_ALARM)

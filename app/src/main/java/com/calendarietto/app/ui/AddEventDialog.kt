@@ -140,7 +140,13 @@ fun AddEventDialog(
                         ColorDot(Color(cal.color or 0xFF000000.toInt()))
                         Column(Modifier.padding(start = 8.dp)) {
                             Text(cal.name)
-                            if (cal.account != cal.name) Text(cal.account, color = p.muted, style = MaterialTheme.typography.bodySmall)
+                            val sub = when {
+                                !cal.isGoogle -> "📱 solo su questo telefono, non va su Google"
+                                cal.isShared -> "💕 condiviso da ${cal.ownerAccount}"
+                                cal.account != cal.name -> cal.account
+                                else -> ""
+                            }
+                            if (sub.isNotBlank()) Text(sub, color = p.muted, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }

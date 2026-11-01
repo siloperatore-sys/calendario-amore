@@ -172,6 +172,8 @@ object AlarmScheduler {
 
 class RefreshWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
     override fun doWork(): Result {
+        ChangeWatcher.check(applicationContext)
+        ChangeWatcher.schedule(applicationContext)
         AlarmScheduler.rescheduleAll(applicationContext)
         return Result.success()
     }

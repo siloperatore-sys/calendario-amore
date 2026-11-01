@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity() {
         )
         Notifications.ensureChannels(this)
         AlarmScheduler.startPeriodicRefresh(this)
+        com.calendarietto.app.alarm.ChangeWatcher.schedule(this)
         val prefs = Prefs(this)
         val repo = CalendarRepository(this)
         setContent { CalendariettoApp(prefs, repo, tick) }
@@ -70,7 +71,10 @@ class MainActivity : ComponentActivity() {
         registerObserver()
         tick.intValue++
         val app = applicationContext
-        Thread { AlarmScheduler.rescheduleAll(app) }.start()
+        Thread {
+            com.calendarietto.app.alarm.ChangeWatcher.check(app)
+            AlarmScheduler.rescheduleAll(app)
+        }.start()
     }
 
     override fun onPause() {

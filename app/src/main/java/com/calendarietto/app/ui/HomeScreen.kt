@@ -89,7 +89,10 @@ private fun eventColor(e: EventItem) = Color(e.color or 0xFF000000.toInt())
 
 fun defaultCalendarId(prefs: Prefs, calendars: List<CalendarInfo>): Long {
     val writable = calendars.filter { it.canWrite }
+    // Prima i calendari Google: quelli «solo telefono» non arrivano mai su Google Calendar.
     return writable.firstOrNull { it.id == prefs.defaultCalendarId }?.id
+        ?: writable.firstOrNull { it.isGoogle && it.name.equals(it.account, ignoreCase = true) }?.id
+        ?: writable.firstOrNull { it.isGoogle }?.id
         ?: writable.firstOrNull { it.name == it.account }?.id
         ?: writable.firstOrNull()?.id
         ?: -1L
@@ -121,6 +124,8 @@ fun HomeScreen(
     var detail by remember { mutableStateOf<EventItem?>(null) }
     var askDelete by remember { mutableStateOf<EventItem?>(null) }
     var newShared by remember { mutableStateOf<CalendarInfo?>(null) }
+    var syncProblem by remember { mutableStateOf<CalendarRepository.SyncProblem?>(null) }
+    var noGoogle by remember { mutableStateOf(false) }
 
     val gridStart = remember(month) { month.atDay(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) }
     val gridDays = remember(gridStart) { (0 until 42).map { gridStart.plusDays(it.toLong()) } }
@@ -144,6 +149,8 @@ fun HomeScreen(
         // Calendario di coppia appena creato da me: quando arriva sul telefono diventa quello «per la voce».
         // Calendario condiviso dal partner: lo propongo una volta sola.
         val all = withContext(Dispatchers.IO) { repo.allCalendars() }
+        syncProblem = withContext(Dispatchers.IO) { repo.syncProblems() }.takeIf { it.any }
+        noGoogle = all.none { it.isGoogle }
         val pending = prefs.pendingCoupleSyncId
         if (pending.isNotBlank()) {
             all.firstOrNull { it.syncId == pending }?.let { mine ->
@@ -228,6 +235,46 @@ fun HomeScreen(
                     RoundButton("💕", onClick = onOpenCouple)
                     Spacer(Modifier.width(8.dp))
                     RoundButton("⚙️", onClick = onOpenSettings)
+                }
+            }
+
+            // --- Avvisi sincronizzazione ---
+            if (noGoogle) {
+                item {
+                    WarningCard(
+                        "Sul telefono non c'è un account Google con il calendario: gli impegni restano solo qui.",
+                        "➕ Aggiungi account Google",
+                    ) {
+                        try {
+                            ctx.startActivity(
+                                Intent(android.provider.Settings.ACTION_ADD_ACCOUNT)
+                                    .putExtra(android.provider.Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google")),
+                            )
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+            syncProblem?.let { sp ->
+                item {
+                    WarningCard(
+                        if (sp.masterOff) "La sincronizzazione automatica del telefono è spenta: niente arriva su Google."
+                        else "La sincronizzazione del calendario Google è spenta per ${sp.accounts.joinToString()}.",
+                        if (sp.masterOff) "⚙️ Apri impostazioni" else "🔄 Attiva sincronizzazione",
+                    ) {
+                        if (sp.masterOff) {
+                            try { ctx.startActivity(Intent(android.provider.Settings.ACTION_SYNC_SETTINGS)) } catch (_: Exception) {}
+                        } else {
+                            scope.launch {
+                                val ok = withContext(Dispatchers.IO) { repo.enableCalendarSync(sp.accounts) }
+                                if (!ok) {
+                                    try { ctx.startActivity(Intent(android.provider.Settings.ACTION_SYNC_SETTINGS)) } catch (_: Exception) {}
+                                }
+                                Toast.makeText(ctx, if (ok) "Sincronizzazione attivata ✨" else "Attivala tu da Impostazioni → Account", Toast.LENGTH_LONG).show()
+                                delay(1500)
+                                onChanged()
+                            }
+                        }
+                    }
                 }
             }
 
@@ -351,7 +398,9 @@ fun HomeScreen(
                                 val s = ed.date.atTime(ed.time).atZone(zone).toInstant().toEpochMilli()
                                 s to s + ed.durationMinutes * 60_000L
                             }
-                            repo.insertEvent(cal, ed.title, start, end, ed.time == null) != null
+                            val r = repo.insertEvent(cal, ed.title, start, end, ed.time == null) != null
+                            com.calendarietto.app.alarm.ChangeWatcher.check(ctx.applicationContext, notify = false)
+                            r
                         }
                         Toast.makeText(ctx, if (ok) "Fatto! Segnato in «${cal.name}» ✨" else "Ops, non sono riuscito a salvarlo 😿", Toast.LENGTH_SHORT).show()
                         selected = ed.date
@@ -447,7 +496,10 @@ fun HomeScreen(
                     askDelete = null
                     val cal = calendars.firstOrNull { it.id == e.calendarId }
                     scope.launch {
-                        withContext(Dispatchers.IO) { repo.deleteEvent(e.eventId, cal) }
+                        withContext(Dispatchers.IO) {
+                            repo.deleteEvent(e.eventId, cal)
+                            com.calendarietto.app.alarm.ChangeWatcher.check(ctx.applicationContext, notify = false)
+                        }
                         onChanged()
                     }
                 }) { Text("Elimina", color = Color(0xFFD9667F)) }
@@ -562,5 +614,15 @@ private fun MicButton(onClick: () -> Unit) {
         ) {
             Text("🎤", fontSize = 30.sp)
         }
+    }
+}
+
+@Composable
+private fun WarningCard(text: String, button: String, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    CozyCard {
+        Text("⚠️ $text", color = p.text)
+        Spacer(Modifier.height(8.dp))
+        PillButton(button, Modifier.fillMaxWidth(), filled = true, onClick = onClick)
     }
 }

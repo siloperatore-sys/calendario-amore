@@ -104,6 +104,7 @@ fun SettingsScreen(
     var before by remember { mutableIntStateOf(prefs.alarmMinutesBefore) }
     var snooze by remember { mutableIntStateOf(prefs.snoozeMinutes) }
     var morning by remember { mutableStateOf(prefs.morningEnabled) }
+    var changes by remember { mutableStateOf(prefs.changeNotify) }
     var mh by remember { mutableIntStateOf(prefs.morningHour) }
     var mm by remember { mutableIntStateOf(prefs.morningMinute) }
 
@@ -165,7 +166,12 @@ fun SettingsScreen(
                             .padding(start = 10.dp),
                     ) {
                         Text(cal.name, fontWeight = FontWeight.Bold)
-                        Text(cal.account + if (!cal.canWrite) " · sola lettura" else "", color = p.muted, style = MaterialTheme.typography.bodySmall)
+                        val tag = when {
+                            !cal.isGoogle -> " · 📱 solo telefono, non su Google"
+                            !cal.canWrite -> " · sola lettura"
+                            else -> ""
+                        }
+                        Text(cal.account + tag, color = p.muted, style = MaterialTheme.typography.bodySmall)
                     }
                 }
                 Row(
@@ -234,6 +240,20 @@ fun SettingsScreen(
                     AlarmScheduler.scheduleTest(ctx.applicationContext)
                     Toast.makeText(ctx, "Suona tra 5 secondi: puoi anche bloccare il telefono", Toast.LENGTH_LONG).show()
                 }
+            }
+        }
+
+        SectionTitle("Avvisi sulle modifiche 💌")
+        CozyCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Avvisami quando un impegno viene aggiunto, cambiato o cancellato", fontWeight = FontWeight.Bold)
+                    Text("Anche quando lo fa l'altra persona dal suo telefono", color = p.muted, style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = changes, onCheckedChange = {
+                    changes = it
+                    prefs.changeNotify = it
+                })
             }
         }
 
