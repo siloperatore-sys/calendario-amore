@@ -109,7 +109,7 @@ fun SettingsScreen(
     var mm by remember { mutableIntStateOf(prefs.morningMinute) }
 
     LaunchedEffect(Unit) {
-        calendars = withContext(Dispatchers.IO) { repo.calendars() }
+        calendars = withContext(Dispatchers.IO) { repo.allCalendars() }.filter { it.visible || it.isGoogle }
         if (calendars.none { it.id == defaultCal && it.canWrite }) defaultCal = defaultCalendarId(prefs, calendars)
     }
 
@@ -168,6 +168,9 @@ fun SettingsScreen(
                         Text(cal.name, fontWeight = FontWeight.Bold)
                         val tag = when {
                             !cal.isGoogle -> " · 📱 solo telefono, non su Google"
+                            !cal.isActive -> " · ⚠️ non sincronizzato"
+                            cal.isShared && !cal.canWrite -> " · 💕 condiviso, sola lettura"
+                            cal.isShared -> " · 💕 condiviso con te"
                             !cal.canWrite -> " · sola lettura"
                             else -> ""
                         }
@@ -178,6 +181,16 @@ fun SettingsScreen(
                     Modifier.horizontalScroll(rememberScrollState()).padding(top = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
+                    if (!cal.isActive) {
+                        KawaiiChip("🔄 Sincronizza sul telefono", false) {
+                            scope.launch {
+                                withContext(Dispatchers.IO) { repo.enableCalendar(cal) }
+                                Toast.makeText(ctx, "Attivato! Gli impegni arrivano in qualche secondo ✨", Toast.LENGTH_LONG).show()
+                                calendars = withContext(Dispatchers.IO) { repo.allCalendars() }.filter { it.visible || it.isGoogle }
+                                reschedule()
+                            }
+                        }
+                    }
                     val shown = cal.id !in hidden
                     KawaiiChip(if (shown) "👀 Visibile" else "🙈 Nascosto", shown) {
                         hidden = if (shown) hidden + cal.id else hidden - cal.id

@@ -159,7 +159,7 @@ fun HomeScreen(
                 prefs.knownShared = prefs.knownShared + mine.id
             }
         }
-        newShared = all.firstOrNull { it.isGoogle && it.isShared && it.canWrite && it.id !in prefs.knownShared }
+        newShared = all.firstOrNull { it.isShared && it.id !in prefs.knownShared }
     }
 
     val byDay = remember(events, gridDays) { gridDays.associateWith { d -> events.filter { it.occursOn(d, zone) } } }
@@ -459,13 +459,17 @@ fun HomeScreen(
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     MascotView(mascot, Modifier.size(90.dp), Mood.EXCITED)
-                    Text("${cal.ownerAccount} ha condiviso con te «${cal.name}». Lo usiamo come il vostro calendario in comune?")
+                    val who = cal.ownerLabel.ifBlank { "Qualcuno" }
+                    Text(
+                        if (cal.canWrite) "$who ha condiviso con te «${cal.name}». Lo usiamo come il vostro calendario in comune?"
+                        else "$who ti fa vedere il calendario «${cal.name}». Lo mostro qui insieme ai tuoi?",
+                    )
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
                     prefs.knownShared = prefs.knownShared + cal.id
-                    prefs.defaultCalendarId = cal.id
+                    if (cal.canWrite) prefs.defaultCalendarId = cal.id
                     prefs.hiddenCalendars = prefs.hiddenCalendars - cal.id
                     newShared = null
                     scope.launch {
@@ -473,7 +477,7 @@ fun HomeScreen(
                         Toast.makeText(ctx, "Collegati! 💕", Toast.LENGTH_SHORT).show()
                         onChanged()
                     }
-                }) { Text("Sì, usalo 💕") }
+                }) { Text(if (cal.canWrite) "Sì, usalo 💕" else "Sì, mostralo 👀") }
             },
             dismissButton = {
                 TextButton(onClick = {

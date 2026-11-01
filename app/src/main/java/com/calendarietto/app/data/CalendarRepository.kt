@@ -26,10 +26,24 @@ data class CalendarInfo(
     val syncEvents: Boolean = true,
     /** Per Google è l'id del calendario (es. xxx@group.calendar.google.com). */
     val syncId: String? = null,
+    val accessLevel: Int = CalendarContract.Calendars.CAL_ACCESS_OWNER,
 ) {
     val isGoogle: Boolean get() = accountType == "com.google"
-    /** Calendario di qualcun altro, condiviso con questo account. */
-    val isShared: Boolean get() = ownerAccount.isNotBlank() && !ownerAccount.equals(account, ignoreCase = true)
+    val isActive: Boolean get() = visible && syncEvents
+
+    /** Festività, compleanni dei contatti e simili: calendari automatici di Google. */
+    val isAutomatic: Boolean
+        get() = ownerAccount.contains("#") || ownerAccount.endsWith("group.v.calendar.google.com") ||
+            (syncId ?: "").contains("#")
+
+    /** Calendario di qualcun altro, condiviso con questo account (anche solo in lettura). */
+    val isShared: Boolean
+        get() = isGoogle && !isAutomatic && accessLevel < CalendarContract.Calendars.CAL_ACCESS_OWNER &&
+            accessLevel >= CalendarContract.Calendars.CAL_ACCESS_READ
+
+    /** Email del proprietario, se è una persona (per i calendari secondari Google mostra un id tecnico). */
+    val ownerLabel: String
+        get() = if (ownerAccount.contains("@") && !ownerAccount.endsWith("calendar.google.com")) ownerAccount else ""
 }
 
 data class EventItem(
@@ -107,6 +121,7 @@ class CalendarRepository(private val context: Context) {
                         visible = c.getInt(7) == 1,
                         syncEvents = c.getInt(8) == 1,
                         syncId = c.getString(9),
+                        accessLevel = c.getInt(5),
                     )
                 }
             }

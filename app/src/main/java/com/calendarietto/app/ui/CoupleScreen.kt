@@ -104,7 +104,7 @@ fun CoupleScreen(
 
     LaunchedEffect(refresh) {
         val (acc, sh) = withContext(Dispatchers.IO) {
-            repo.googleAccounts() to repo.allCalendars().filter { it.isGoogle && it.isShared && it.canWrite }
+            repo.googleAccounts() to repo.allCalendars().filter { it.isShared }
         }
         accounts = acc
         if (account.isBlank() || account !in acc) account = acc.firstOrNull() ?: ""
@@ -212,11 +212,19 @@ fun CoupleScreen(
 
     fun useShared(cal: CalendarInfo) {
         scope.launch {
-            withContext(Dispatchers.IO) { repo.enableCalendar(cal) }
-            prefs.defaultCalendarId = cal.id
+            withContext(Dispatchers.IO) {
+                repo.enableCalendar(cal)
+                repo.requestSync(cal)
+            }
+            if (cal.canWrite) prefs.defaultCalendarId = cal.id
             prefs.hiddenCalendars = prefs.hiddenCalendars - cal.id
             prefs.knownShared = prefs.knownShared + cal.id
-            Toast.makeText(ctx, "Collegati! «${cal.name}» è il vostro calendario 💕", Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                ctx,
+                if (cal.canWrite) "Collegati! «${cal.name}» è il vostro calendario 💕"
+                else "Ora vedi «${cal.name}» 👀 (sola lettura). Gli impegni arrivano in qualche secondo.",
+                Toast.LENGTH_LONG,
+            ).show()
             onChanged()
             refresh++
         }
@@ -347,7 +355,8 @@ fun CoupleScreen(
                 )
             }
             shared.forEach { cal ->
-                val active = cal.visible && cal.syncEvents && prefs.defaultCalendarId == cal.id
+                val active = cal.isActive && cal.id !in prefs.hiddenCalendars &&
+                    (!cal.canWrite || prefs.defaultCalendarId == cal.id)
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -358,9 +367,19 @@ fun CoupleScreen(
                     ColorDot(Color(cal.color or 0xFF000000.toInt()), 14)
                     Column(Modifier.weight(1f)) {
                         Text(cal.name, fontWeight = FontWeight.Bold)
-                        Text("di ${cal.ownerAccount}", color = p.muted, style = MaterialTheme.typography.bodySmall)
+                        val who = if (cal.ownerLabel.isNotBlank()) "di ${cal.ownerLabel}" else "condiviso con ${cal.account}"
+                        val what = when {
+                            !cal.isActive -> " · non sincronizzato sul telefono"
+                            !cal.canWrite -> " · sola lettura"
+                            else -> ""
+                        }
+                        Text(who + what, color = p.muted, style = MaterialTheme.typography.bodySmall)
                     }
-                    if (active) Text("✅ Collegati") else KawaiiChip("💕 Usa questo", false) { useShared(cal) }
+                    when {
+                        active -> Text(if (cal.canWrite) "✅ Collegati" else "✅ Visibile")
+                        cal.canWrite -> KawaiiChip("💕 Usa questo", false) { useShared(cal) }
+                        else -> KawaiiChip("👀 Mostra", false) { useShared(cal) }
+                    }
                 }
             }
         }
